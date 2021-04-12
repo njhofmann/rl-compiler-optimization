@@ -9,7 +9,10 @@
 1. track eval criteria with call back
     1. cum reward per episode    
     1. q value for states over time 
-    1. 
+    1. normalize input
+    1. use raw policy prediction scores for q-value tracking
    
 1. track real time as well
 1. track seeds?
+1. select benchmarks for training
+1. 
