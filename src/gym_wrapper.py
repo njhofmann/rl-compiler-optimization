@@ -1,12 +1,12 @@
-import gym as g
-import compiler_gym as cg
 import math as m
 import time as t
+from typing import Optional, List
+import random as r
 
-from typing import Optional
-
+import compiler_gym as cg
+import gym as g
+import numpy as np
 from stable_baselines3.common.env_checker import check_env
-import stable_baselines3.common.vec_env as v
 
 
 class CompilerGymWrapper(g.Env):
@@ -14,18 +14,28 @@ class CompilerGymWrapper(g.Env):
     supported by Stable Baselines (as of now). In addition, supports several different termination kinds of termination
     criteria as that concept is ill-defined for Compiler Gym environments"""
 
-    def __init__(self, compiler_env: str, random_seed: Optional[int] = None, eps_iters: Optional[int] = None,
-                 eps_patience: Optional[int] = None, eps_runtime: Optional[int] = None) -> None:
+    def __init__(self, compiler_env: str, random_seed: Optional[int] = None,
+                 eps_iters: Optional[int] = None, eps_patience: Optional[int] = None,
+                 eps_runtime: Optional[int] = None) -> None:
         super(CompilerGymWrapper, self).__init__()
         # compiler gym environment to wrap around
         self.compiler_env = self._init_compiler_env(compiler_env)
         self.action_space = self.compiler_env.action_space
-        self.observation_space = self.compiler_env.observation_space.space
+        self.reward_space = self.compiler_env.reward_space
+
+        # remove feature that is always a constant after normalization
+        old_space = self.compiler_env.observation_space.space
+        self.observation_space = g.spaces.Box(low=old_space.low[:-1],
+                                              high=old_space.high[:-1],
+                                              shape=(old_space.shape[0] - 1,),
+                                              dtype=np.float64)
 
         if all([x is None for x in (eps_iters, eps_patience)]):
             raise ValueError('need at least one termination criteria')
 
         self.compiler_env.seed(random_seed)
+
+        self.benchmarks = None
 
         # episode termination criteria
         self._eps_iters = eps_iters
@@ -85,6 +95,12 @@ class CompilerGymWrapper(g.Env):
     def _get_cur_time(self) -> float:
         return t.time()
 
+    def _normalize_obs(self, observation: np.ndarray) -> np.ndarray:
+        """Pseudo-normalizes an Autophase observation space by dividing each feature by the total number of instructions
+        in the representation (item 51) and removing that feature"""
+        # TODO true divide error...?
+        return np.concatenate([observation[:51], observation[52:]]) / observation[51]
+
     def step(self, action):
         start_time = self._get_cur_time()
         obs, reward, done, info = self.compiler_env.step(action)
@@ -98,10 +114,20 @@ class CompilerGymWrapper(g.Env):
         if done:
             self._reset_for_eps()
 
+        obs = self._normalize_obs(obs)
         return obs, reward, done, info
 
+    def _get_rand_benchmark(self) -> Optional[str]:
+        # TODO explain me
+        if not self.benchmarks:
+            return None
+        return r.choice(self.benchmarks)
+
+    def set_benchmarks(self, benchmarks: List[str]) -> None:
+        self.benchmarks = benchmarks
+
     def reset(self):
-        return self.compiler_env.reset()
+        return self._normalize_obs(self.compiler_env.reset(self._get_rand_benchmark()))
 
     def close(self):
         return self.compiler_env.close()
@@ -112,22 +138,26 @@ class CompilerGymWrapper(g.Env):
     def render(self, mode: str):
         return self.compiler_env.render(mode)
 
+    def summary(self) -> None:
+        print(f'Observation Space: {self.observation_space}')
+        print(f'Action Space: {self.action_space}')
+        print(f'Reward Space: {self.reward_space}')
+        print(f'Active Benchmarks: {self.compiler_env.benchmarks}')
+
 
 def test_env() -> None:
     env = CompilerGymWrapper('llvm-autophase-codesize-v0', eps_iters=1000)
     check_env(env)
-    env = v.VecNormalize(v.DummyVecEnv([lambda: env]))
     obs = env.reset()
     n_steps = 100
     for _ in range(n_steps):
         # Random action
         action = env.action_space.sample()
         obs, reward, done, info = env.step(action)
-        print(obs)
         if done:
             obs = env.reset()
 
 
 if __name__ == '__main__':
-    test_env()
-    print()
+    env = CompilerGymWrapper('llvm-autophase-codesize-v0', eps_iters=1000)
+    env.summary()
