@@ -2,6 +2,8 @@ import math as m
 import time as t
 from typing import Optional, List
 import random as r
+import pathlib as pl
+import logging as log
 
 import compiler_gym as cg
 import gym as g
@@ -16,7 +18,7 @@ class CompilerGymWrapper(g.Env):
 
     def __init__(self, compiler_env: str, random_seed: Optional[int] = None,
                  eps_iters: Optional[int] = None, eps_patience: Optional[int] = None,
-                 eps_runtime: Optional[int] = None) -> None:
+                 eps_runtime: Optional[int] = None, logging_path: Optional[pl.Path] = None) -> None:
         super(CompilerGymWrapper, self).__init__()
         # compiler gym environment to wrap around
         self.compiler_env = self._init_compiler_env(compiler_env)
@@ -49,7 +51,21 @@ class CompilerGymWrapper(g.Env):
         self._cur_best_total_reward = -m.inf
         self._cur_total_reward = 0
 
+        self.log = False
+        if logging_path:
+            logging_path.parent.mkdir(exist_ok=True, parents=True)
+            log.basicConfig(filename=str(logging_path), level=log.INFO)
+            self.log = True
+
+        # how many episodes have been run?
+        self._eps_count = 0
+        self._step_count = 0
+
         self.reset()
+
+    def _log_info(self, info: str) -> None:
+        if self.log:
+            log.info(info)
 
     def _init_compiler_env(self, env: str) -> cg.CompilerEnv:
         return g.make(env)
@@ -85,6 +101,9 @@ class CompilerGymWrapper(g.Env):
             self._cur_eps_runtime -= step_time
 
     def _reset_for_eps(self) -> None:
+        self._log_info(f'episode ended, cumulative reward: '
+                       f'{self._cur_total_reward}, '
+                       f'best cumulative reward: {self._cur_best_total_reward}\n')
         self.reset()
         self._cur_eps_patience = self._eps_patience
         self._cur_eps_runtime = self._eps_runtime
@@ -105,6 +124,9 @@ class CompilerGymWrapper(g.Env):
         start_time = self._get_cur_time()
         obs, reward, done, info = self.compiler_env.step(action)
         elapsed_time = self._get_cur_time() - start_time
+
+        self._step_count += 1
+        self._log_info(f'step {self._step_count}, reward: {reward}')
 
         self._increment_eps(elapsed_time)
 
@@ -127,7 +149,11 @@ class CompilerGymWrapper(g.Env):
         self.benchmarks = benchmarks
 
     def reset(self):
-        return self._normalize_obs(self.compiler_env.reset(self._get_rand_benchmark()))
+        self._eps_count += 1
+        self._step_count = 0
+        benchmark = self._get_rand_benchmark()
+        self._log_info(f'episode {self._eps_count}, benchmark {benchmark}')
+        return self._normalize_obs(self.compiler_env.reset(benchmark))
 
     def close(self):
         return self.compiler_env.close()

@@ -13,9 +13,16 @@ Agent = Union[sb.DQN, sb.A2C, sb.PPO]
 
 
 def init_agent(agent_type: str, env: g.Env) -> Agent:
-    for agent, init_func in ('ppo', sb.PPO), ('ac', sb.A2C), ('dqn', sb.DQN):
-        if agent_type == agent:
-            return init_func(policy='MlpPolicy', env=env, verbose=1)
+    if agent_type == 'dqn':
+        #policy = sb.dqn.MlpPolicy(observation_space=env.observation_space, action_space=env.action_space)
+        return sb.DQN(policy='MlpPolicy', env=env, verbose=1, buffer_size=2000, learning_starts=1000,
+                      learning_rate=5e-4, gradient_steps=4, target_update_interval=10, batch_size=32,
+                      exploration_fraction=.1, max_grad_norm=40, exploration_final_eps=.02)
+    elif agent_type == 'ac':
+        return sb.A2C(policy='MlpPolicy', env=env, verbose=1, max_grad_norm=40, learning_rate=.0001, vf_coef=.5,
+                      ent_coef=.5, gae_lambda=1.0)
+    elif agent_type == 'ppo':
+        return sb.PPO(policy='MlpPolicy', env=env, verbose=1)
     raise ValueError(f'agent {agent_type} is not a supported agent')
 
 
@@ -76,11 +83,15 @@ def get_and_set_benchmarks(train_env: gy.CompilerGymWrapper, eval_env: gy.Compil
 
 def train_and_eval_agent(args: ap.Namespace) -> None:
     save_name = args.save_name
+    train_log_path = None
+    if args.logging_file:
+        train_log_path = p.TRAIN_LOGS / f'{save_name}_training.txt'
     env = gy.CompilerGymWrapper(compiler_env=args.env,
                                 eps_iters=args.eps_dur,
                                 eps_runtime=args.eps_runtime,
                                 eps_patience=args.eps_patience,
-                                random_seed=args.seed)
+                                random_seed=args.seed,
+                                logging_path=train_log_path)
 
     eval_env = gy.CompilerGymWrapper(compiler_env=args.env,
                                      eps_iters=args.eps_dur,
@@ -88,7 +99,7 @@ def train_and_eval_agent(args: ap.Namespace) -> None:
                                      eps_patience=args.eps_patience,
                                      random_seed=args.seed)
 
-    eval_env, env = get_and_set_benchmarks(env, eval_env, args.datasets, args.test_datasets)
+    env, eval_env = get_and_set_benchmarks(env, eval_env, args.datasets, args.test_datasets)
 
     p.RESULTS_DIRC.mkdir(exist_ok=True, parents=True)
     agent = init_agent(args.agent, env)
