@@ -4,10 +4,10 @@ import argparse as ap
 def parser_user_args() -> ap.Namespace:
     parser = ap.ArgumentParser()
     parser.add_argument('--env', '-e', type=str, choices=['llvm-autophase-ic-v0', 'llvm-autophase-codesize-v0'],
-                        required=True, help='environment to learn a policy for')
-    parser.add_argument('--agent', '-a', type=str, choices=['dqn', 'ac', 'ppo'], required=True,
+                        help='environment to learn a policy for')
+    parser.add_argument('--agent', '-a', type=str, choices=['dqn', 'ac', 'ppo'],
                         help='agent to learn a policy with')
-    parser.add_argument('--timesteps', '-t', type=int, required=True, help='number of timesteps to train an agent')
+    parser.add_argument('--timesteps', '-t', type=int, help='number of timesteps to train an agent')
     parser.add_argument('--eval_freq', '-ef', type=int, default=1000,
                         help='evaluate the policy every X training timesteps')
     parser.add_argument('--eval_dur', '-vd', type=int, default=10,
@@ -20,13 +20,15 @@ def parser_user_args() -> ap.Namespace:
                         help='max amount of "patience" to give during each episode')
     parser.add_argument('--eps_runtime', '-er', type=int, default=None,
                         help='amount of runtime to give each episode, in seconds')
-    parser.add_argument('--save_name', '-sn', required=True, help='name to give to saved model and its results')
+    parser.add_argument('--save_name', '-sn', help='name to give to saved model and its results')
     parser.add_argument('--seed', '-s', type=int, default=None, help='random seed for pseudo random operations')
     parser.add_argument('--datasets', '-d', nargs='+', default=['github-v0'],
                         help='selection of datasets to train and eval an agent on, may overlap with testing benchmarks')
     parser.add_argument('--test_datasets', '-td',
-                        help='selection of datasets to eval an agent on, if overlaps with training datasets - splits'
-                             'the benchmarks in it dataset')
+                        help='selection of datasets to eval an agent on, may overlap with training benchmarks, if None '
+                             'uses training benchmarks')
+    parser.add_argument('--overlap', '-o', action='store_true',
+                        help='if overlap between training and testing datasets, splits them')
     parser.add_argument('--view_results', default=None,
                         help='view the results from a prior run, stored under the results file')
     parser.add_argument('--logging_file', '-lf', action='store_true', help='log training progress')

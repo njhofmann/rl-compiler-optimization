@@ -14,7 +14,7 @@ Agent = Union[sb.DQN, sb.A2C, sb.PPO]
 
 def init_agent(agent_type: str, env: g.Env) -> Agent:
     if agent_type == 'dqn':
-        #policy = sb.dqn.MlpPolicy(observation_space=env.observation_space, action_space=env.action_space)
+        # policy = sb.dqn.MlpPolicy(observation_space=env.observation_space, action_space=env.action_space)
         return sb.DQN(policy='MlpPolicy', env=env, verbose=1, buffer_size=2000, learning_starts=1000,
                       learning_rate=5e-4, gradient_steps=4, target_update_interval=10, batch_size=32,
                       exploration_fraction=.1, max_grad_norm=40, exploration_final_eps=.02)
@@ -42,7 +42,7 @@ def move_eval_results(model_name: str) -> None:
 
 
 def get_and_set_benchmarks(train_env: gy.CompilerGymWrapper, eval_env: gy.CompilerGymWrapper, datasets: List[str],
-                           eval_datasets: Optional[List[str]]) -> Tuple[gy.CompilerGymWrapper, gy.CompilerGymWrapper]:
+                           eval_datasets: Optional[List[str]], overlap: bool) -> Tuple[gy.CompilerGymWrapper, gy.CompilerGymWrapper]:
     def get_benchmarks(dataset: str) -> List[str]:
         return [benchmark for benchmark in train_env.compiler_env.benchmarks if dataset in benchmark]
 
@@ -58,17 +58,18 @@ def get_and_set_benchmarks(train_env: gy.CompilerGymWrapper, eval_env: gy.Compil
     datasets, eval_datasets = set(datasets), set(eval_datasets)
     train_benchmarks, test_benchmarks = set(), set()
 
-    overlap_datasets = datasets.union(eval_datasets)
-    datasets.difference_update(overlap_datasets)
-    eval_datasets.difference_update(overlap_datasets)
+    if overlap:
+        overlap_datasets = datasets.union(eval_datasets)
+        datasets.difference_update(overlap_datasets)
+        eval_datasets.difference_update(overlap_datasets)
 
-    for dataset in overlap_datasets:
-        benchs = get_benchmarks(dataset)
-        r.shuffle(benchs)
-        mid = round(len(benchs) / 2)
-        front, back = benchs[:mid], benchs[mid:]
-        train_benchmarks.update(front)
-        test_benchmarks.update(back)
+        for dataset in overlap_datasets:
+            benchs = get_benchmarks(dataset)
+            r.shuffle(benchs)
+            mid = round(len(benchs) / 2)
+            front, back = benchs[:mid], benchs[mid:]
+            train_benchmarks.update(front)
+            test_benchmarks.update(back)
 
     for dataset in datasets:
         train_benchmarks.update(get_benchmarks(dataset))
@@ -99,7 +100,7 @@ def train_and_eval_agent(args: ap.Namespace) -> None:
                                      eps_patience=args.eps_patience,
                                      random_seed=args.seed)
 
-    env, eval_env = get_and_set_benchmarks(env, eval_env, args.datasets, args.test_datasets)
+    env, eval_env = get_and_set_benchmarks(env, eval_env, args.datasets, args.test_datasets, args.overlap)
 
     p.RESULTS_DIRC.mkdir(exist_ok=True, parents=True)
     agent = init_agent(args.agent, env)
@@ -132,10 +133,13 @@ def view_results(results_file: str) -> None:
 
 
 def main(args: ap.Namespace) -> None:
-    if args.view_results is None:
-        train_and_eval_agent(args)
-    else:
+    if args.view_results is not None:
         view_results(args.view_results)
+
+    if any([getattr(args, x) is None for x in ('env', 'agent', 'timesteps', 'save_name')]):
+        raise ValueError(f'require an environment, agent, timesteps, and save name')
+
+    train_and_eval_agent(args)
 
 
 if __name__ == '__main__':
