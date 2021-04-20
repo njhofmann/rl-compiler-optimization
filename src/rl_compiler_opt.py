@@ -17,12 +17,13 @@ def init_agent(agent_type: str, env: g.Env) -> Agent:
         # policy = sb.dqn.MlpPolicy(observation_space=env.observation_space, action_space=env.action_space)
         return sb.DQN(policy='MlpPolicy', env=env, verbose=1, buffer_size=2000, learning_starts=1000,
                       learning_rate=5e-4, gradient_steps=4, target_update_interval=10, batch_size=32,
-                      exploration_fraction=.1, max_grad_norm=40, exploration_final_eps=.02)
-    elif agent_type == 'ac':
+                      exploration_fraction=.1, max_grad_norm=40, exploration_final_eps=.02,
+                      policy_kwargs={'net_arch': [256]})
+    elif agent_type == 'a2c':
         return sb.A2C(policy='MlpPolicy', env=env, verbose=1, max_grad_norm=40, learning_rate=.0001, vf_coef=.5,
-                      ent_coef=.5, gae_lambda=1.0)
+                      ent_coef=.01, gae_lambda=1.0)
     elif agent_type == 'ppo':
-        return sb.PPO(policy='MlpPolicy', env=env, verbose=1)
+        return sb.PPO(policy='MlpPolicy', env=env, verbose=1, batch_size=10, policy_kwargs={'net_arch': [64, 64]})
     raise ValueError(f'agent {agent_type} is not a supported agent')
 
 
@@ -135,11 +136,10 @@ def view_results(results_file: str) -> None:
 def main(args: ap.Namespace) -> None:
     if args.view_results is not None:
         view_results(args.view_results)
-
-    if any([getattr(args, x) is None for x in ('env', 'agent', 'timesteps', 'save_name')]):
+    elif any([getattr(args, x) is None for x in ('env', 'agent', 'timesteps', 'save_name')]):
         raise ValueError(f'require an environment, agent, timesteps, and save name')
-
-    train_and_eval_agent(args)
+    else:
+        train_and_eval_agent(args)
 
 
 if __name__ == '__main__':

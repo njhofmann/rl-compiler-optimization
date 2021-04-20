@@ -5,7 +5,7 @@ def parser_user_args() -> ap.Namespace:
     parser = ap.ArgumentParser()
     parser.add_argument('--env', '-e', type=str, choices=['llvm-autophase-ic-v0', 'llvm-autophase-codesize-v0'],
                         help='environment to learn a policy for')
-    parser.add_argument('--agent', '-a', type=str, choices=['dqn', 'ac', 'ppo'],
+    parser.add_argument('--agent', '-a', type=str, choices=['dqn', 'a2c', 'ppo'],
                         help='agent to learn a policy with')
     parser.add_argument('--timesteps', '-t', type=int, help='number of timesteps to train an agent')
     parser.add_argument('--eval_freq', '-ef', type=int, default=1000,
