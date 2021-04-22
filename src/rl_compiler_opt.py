@@ -86,7 +86,7 @@ def get_and_set_benchmarks(train_env: gy.CompilerGymWrapper, eval_env: gy.Compil
 def train_and_eval_agent(args: ap.Namespace) -> None:
     save_name = args.save_name
     train_log_path = None
-    if args.logging_file:
+    if args.log_training:
         train_log_path = p.TRAIN_LOGS / f'{save_name}_training.txt'
     env = gy.CompilerGymWrapper(compiler_env=args.env,
                                 eps_iters=args.eps_dur,

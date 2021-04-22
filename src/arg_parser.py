@@ -31,5 +31,5 @@ def parser_user_args() -> ap.Namespace:
                         help='if overlap between training and testing datasets, splits them')
     parser.add_argument('--view_results', default=None,
                         help='view the results from a prior run, stored under the results file')
-    parser.add_argument('--logging_file', '-lf', action='store_true', help='log training progress')
+    parser.add_argument('--log_training', '-lf', action='store_true', help='log training progress')
     return parser.parse_args()

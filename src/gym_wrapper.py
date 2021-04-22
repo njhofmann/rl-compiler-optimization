@@ -4,6 +4,7 @@ from typing import Optional, List
 import random as r
 import pathlib as pl
 import logging as log
+import logging.handlers as lh
 
 import compiler_gym as cg
 import gym as g
@@ -24,13 +25,7 @@ class CompilerGymWrapper(g.Env):
         self.compiler_env = self._init_compiler_env(compiler_env)
         self.action_space = self.compiler_env.action_space
         self.reward_space = self.compiler_env.reward_space
-
-        # remove feature that is always a constant after normalization
-        old_space = self.compiler_env.observation_space.space
-        self.observation_space = g.spaces.Box(low=old_space.low[:-1],
-                                              high=old_space.high[:-1],
-                                              shape=(old_space.shape[0] - 1,),
-                                              dtype=np.float64)
+        self.observation_space = self._init_observation_space()
 
         if all([x is None for x in (eps_iters, eps_patience)]):
             raise ValueError('need at least one termination criteria')
@@ -51,11 +46,7 @@ class CompilerGymWrapper(g.Env):
         self._cur_best_total_reward = -m.inf
         self._cur_total_reward = 0
 
-        self.log = False
-        if logging_path:
-            logging_path.parent.mkdir(exist_ok=True, parents=True)
-            log.basicConfig(filename=str(logging_path), level=log.INFO)
-            self.log = True
+        self.log = self._init_logger(logging_path)
 
         # how many episodes have been run?
         self._eps_count = 0
@@ -63,9 +54,27 @@ class CompilerGymWrapper(g.Env):
 
         self.reset()
 
+    def _init_observation_space(self) -> g.Space:
+        # remove feature that is always a constant after normalization
+        old_space = self.compiler_env.observation_space.space
+        return g.spaces.Box(low=old_space.low[:-1], high=old_space.high[:-1],
+                            shape=(old_space.shape[0] - 1,), dtype=np.float64)
+
     def _log_info(self, info: str) -> None:
         if self.log:
-            log.info(info)
+            self.log.info(info)
+
+    def _init_logger(self, logging_path: Optional[pl.Path]) -> Optional[log.Logger]:
+        if logging_path is None:
+            return None
+        logging_path.parent.mkdir(exist_ok=True, parents=True)
+        logger = log.getLogger(__name__)
+        logger.setLevel(log.INFO)
+        writer = lh.WatchedFileHandler(filename=logging_path)
+        formatter = log.Formatter(log.BASIC_FORMAT)
+        writer.setFormatter(formatter)
+        logger.addHandler(writer)
+        return logger
 
     def _init_compiler_env(self, env: str) -> cg.CompilerEnv:
         return g.make(env)
@@ -117,8 +126,7 @@ class CompilerGymWrapper(g.Env):
     def _normalize_obs(self, observation: np.ndarray) -> np.ndarray:
         """Pseudo-normalizes an Autophase observation space by dividing each feature by the total number of instructions
         in the representation (item 51) and removing that feature"""
-        # TODO true divide error...?
-        return np.concatenate([observation[:51], observation[52:]]) / observation[51]
+        return np.concatenate([observation[:51], observation[52:]]) / max(observation[51], 1)
 
     def step(self, action):
         start_time = self._get_cur_time()
@@ -140,10 +148,7 @@ class CompilerGymWrapper(g.Env):
         return obs, reward, done, info
 
     def _get_rand_benchmark(self) -> Optional[str]:
-        # TODO explain me
-        if not self.benchmarks:
-            return None
-        return r.choice(self.benchmarks)
+        return r.choice(self.benchmarks) if self.benchmarks else None
 
     def set_benchmarks(self, benchmarks: List[str]) -> None:
         self.benchmarks = benchmarks
