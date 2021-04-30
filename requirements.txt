@@ -1,0 +1,5 @@
+gym~=0.18.0
+numpy~=1.20.2
+matplotlib~=3.4.1
+stable-baselines3~=1.0
+compiler-gym==0.1.7

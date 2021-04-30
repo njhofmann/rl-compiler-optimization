@@ -1,8 +1,4 @@
 1. integrate termination criteria into env via method overload?
-    1. patience - no improvement after n steps terminate, else reset to n
-    1. patience but don't reset after improvement, only decrement?
-    1. run for n steps everytime
-    1. override agent functions?
     1. convergence? 0 reward negative or positive
    
 1. track eval criteria with call back
@@ -10,7 +6,14 @@
     1. q value for states over time
     1. use raw policy prediction scores for q-value tracking
    
-1. track real time as well
-1. assign specific benchmarks to envs
 1. track worthwhile papers
-1. how is different from autphase paper   
+1. previous k actions as env state
+1. k actions at a time   
+1. additional datasets
+   1. specific training data
+1. implement baseline methods
+   1. random search
+   1. greedy search
+1. additional termination criteria
+   1. simulated annealing
+   1. give optional 
