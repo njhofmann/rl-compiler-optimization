@@ -4,6 +4,7 @@ from typing import Optional, List
 import random as r
 import pathlib as pl
 import logging as log
+import collections as c
 import logging.handlers as lh
 
 import compiler_gym as cg
@@ -19,8 +20,13 @@ class CompilerGymWrapper(g.Env):
 
     def __init__(self, compiler_env: str, random_seed: Optional[int] = None,
                  eps_iters: Optional[int] = None, eps_patience: Optional[int] = None,
-                 eps_runtime: Optional[int] = None, logging_path: Optional[pl.Path] = None) -> None:
+                 eps_runtime: Optional[int] = None, logging_path: Optional[pl.Path] = None, k_prev_actions: int = 0) \
+            -> None:
         super(CompilerGymWrapper, self).__init__()
+        # number of previous actions to feed to the environment
+        self.k_prev_actions_cnt = k_prev_actions
+        self.k_prev_actions = c.deque([0. for _ in range(self.k_prev_actions_cnt)], maxlen=self.k_prev_actions_cnt)
+
         # compiler gym environment to wrap around
         self.compiler_env = self._init_compiler_env(compiler_env)
         self.action_space = self.compiler_env.action_space
@@ -56,9 +62,12 @@ class CompilerGymWrapper(g.Env):
 
     def _init_observation_space(self) -> g.Space:
         # remove feature that is always a constant after normalization
+        # make space for the k prev actions
         old_space = self.compiler_env.observation_space.space
-        return g.spaces.Box(low=old_space.low[:-1], high=old_space.high[:-1],
-                            shape=(old_space.shape[0] - 1,), dtype=np.float64)
+        new_size = old_space.shape[0] - 1 + self.k_prev_actions_cnt
+        new_low = np.array([old_space.low[0] for _ in range(new_size)])
+        new_high = np.array([old_space.high[0] for _ in range(new_size)])
+        return g.spaces.Box(low=new_low, high=new_high, shape=(new_size,), dtype=np.float64)
 
     def _log_info(self, info: str) -> None:
         if self.log:
@@ -78,6 +87,11 @@ class CompilerGymWrapper(g.Env):
 
     def _init_compiler_env(self, env: str) -> cg.CompilerEnv:
         return g.make(env)
+
+    def _add_prev_action(self, prev_action: int) -> None:
+        # 0 is reserved for no prev action
+        # standardize to help learning
+        self.k_prev_actions.append((prev_action + 1) / len(self.action_space.flags))
 
     def _out_of_patience(self, reward: float) -> bool:
         if self._eps_patience is None:
@@ -128,10 +142,18 @@ class CompilerGymWrapper(g.Env):
         in the representation (item 51) and removing that feature"""
         return np.concatenate([observation[:51], observation[52:]]) / max(observation[51], 1)
 
+    def _add_prev_actions_to_obs(self, observation: np.ndarray) -> np.ndarray:
+        return np.concatenate([observation, np.array(self.k_prev_actions)])
+
+    def _modify_obs(self, obervation: np.ndarray) -> np.ndarray:
+        return self._add_prev_actions_to_obs(self._normalize_obs(obervation))
+
     def step(self, action):
         start_time = self._get_cur_time()
         obs, reward, done, info = self.compiler_env.step(action)
         elapsed_time = self._get_cur_time() - start_time
+
+        self._add_prev_action(action)
 
         self._step_count += 1
         self._log_info(f'step {self._step_count}, reward: {reward}')
@@ -144,7 +166,7 @@ class CompilerGymWrapper(g.Env):
         if done:
             self._reset_for_eps()
 
-        obs = self._normalize_obs(obs)
+        obs = self._modify_obs(obs)
         return obs, reward, done, info
 
     def _get_rand_benchmark(self) -> Optional[str]:
@@ -158,7 +180,7 @@ class CompilerGymWrapper(g.Env):
         self._step_count = 0
         benchmark = self._get_rand_benchmark()
         self._log_info(f'episode {self._eps_count}, benchmark {benchmark}')
-        return self._normalize_obs(self.compiler_env.reset(benchmark))
+        return self._modify_obs(self.compiler_env.reset(benchmark))
 
     def close(self):
         return self.compiler_env.close()
@@ -171,13 +193,12 @@ class CompilerGymWrapper(g.Env):
 
     def summary(self) -> None:
         print(f'Observation Space: {self.observation_space}')
-        print(f'Action Space: {self.action_space}')
+        print(f'# of Actions: {self.action_space}')
         print(f'Reward Space: {self.reward_space}')
-        print(f'Active Benchmarks: {self.compiler_env.benchmarks}')
 
 
 def test_env() -> None:
-    env = CompilerGymWrapper('llvm-autophase-codesize-v0', eps_iters=1000)
+    env = CompilerGymWrapper('llvm-autophase-codesize-v0', eps_iters=1000, k_prev_actions=10)
     check_env(env)
     obs = env.reset()
     n_steps = 100
@@ -190,5 +211,6 @@ def test_env() -> None:
 
 
 if __name__ == '__main__':
-    env = CompilerGymWrapper('llvm-autophase-codesize-v0', eps_iters=1000)
+    env = CompilerGymWrapper('llvm-autophase-codesize-v0', eps_iters=1000, k_prev_actions=10)
     env.summary()
+    test_env()

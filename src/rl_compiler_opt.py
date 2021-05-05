@@ -93,13 +93,15 @@ def train_and_eval_agent(args: ap.Namespace) -> None:
                                 eps_runtime=args.eps_runtime,
                                 eps_patience=args.eps_patience,
                                 random_seed=args.seed,
-                                logging_path=train_log_path)
+                                logging_path=train_log_path,
+                                k_prev_actions=args.k_prev_actions)
 
     eval_env = gy.CompilerGymWrapper(compiler_env=args.env,
                                      eps_iters=args.eps_dur,
                                      eps_runtime=args.eps_runtime,
                                      eps_patience=args.eps_patience,
-                                     random_seed=args.seed)
+                                     random_seed=args.seed,
+                                     k_prev_actions=args.k_prev_actions)
 
     env, eval_env = get_and_set_benchmarks(env, eval_env, args.datasets, args.test_datasets, args.overlap)
 
