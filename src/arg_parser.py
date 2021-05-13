@@ -12,7 +12,6 @@ def add_dqn_args(parser: ap.ArgumentParser) -> ap.ArgumentParser:
                         help='how many steps of the model to collect transitions for before learning starts')
     parser.add_argument('--target_update_interval', type=int, default=10000,
                         help='update target network every X environment steps')
-    parser.add_argument()
     return parser
 
 
