@@ -1,11 +1,11 @@
+import collections as c
+import logging as log
+import logging.handlers as lh
 import math as m
+import pathlib as pl
+import random as r
 import time as t
 from typing import Optional, List
-import random as r
-import pathlib as pl
-import logging as log
-import collections as c
-import logging.handlers as lh
 
 import compiler_gym as cg
 import gym as g
@@ -18,11 +18,16 @@ class CompilerGymWrapper(g.Env):
     supported by Stable Baselines (as of now). In addition, supports several different termination kinds of termination
     criteria as that concept is ill-defined for Compiler Gym environments"""
 
-    def __init__(self, compiler_env: str, random_seed: Optional[int] = None,
-                 eps_iters: Optional[int] = None, eps_patience: Optional[int] = None,
-                 eps_runtime: Optional[int] = None, logging_path: Optional[pl.Path] = None, k_prev_actions: int = 0) \
-            -> None:
+    def __init__(self, compiler_env: str,
+                 random_seed: Optional[int] = None,
+                 eps_iters: Optional[int] =
+                 None, eps_patience: Optional[int] = None,
+                 eps_runtime: Optional[int] = None,
+                 logging_path: Optional[pl.Path] = None,
+                 k_prev_actions: int = 0,
+                 neutral_reward: float = 0) -> None:
         super(CompilerGymWrapper, self).__init__()
+
         # number of previous actions to feed to the environment
         self.k_prev_actions_cnt = k_prev_actions
         self.k_prev_actions = c.deque([0. for _ in range(self.k_prev_actions_cnt)], maxlen=self.k_prev_actions_cnt)
@@ -39,6 +44,10 @@ class CompilerGymWrapper(g.Env):
         self.compiler_env.seed(random_seed)
 
         self.benchmarks = None
+
+        # reward to apply to "neutral" actions that don't change the environment (ie have natural reward of 0)
+        # should be small negative number like -0.001
+        self.neutral_reward = neutral_reward
 
         # episode termination criteria
         self._eps_iters = eps_iters
@@ -165,6 +174,8 @@ class CompilerGymWrapper(g.Env):
 
         if done:
             self._reset_for_eps()
+        elif not done and reward == 0.0:
+            reward += self.neutral_reward
 
         obs = self._modify_obs(obs)
         return obs, reward, done, info
