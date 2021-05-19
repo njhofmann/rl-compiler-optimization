@@ -12,6 +12,8 @@ def add_dqn_args(parser: ap.ArgumentParser) -> ap.ArgumentParser:
                         help='how many steps of the model to collect transitions for before learning starts')
     parser.add_argument('--target_update_interval', type=int, default=10000,
                         help='update target network every X environment steps')
+    parser.add_argument('--buffer_size', '-us', type=int, default=10000,
+                        help='buffer size to store previous environment experiences')
     return parser
 
 
@@ -69,7 +71,7 @@ def parser_user_args() -> ap.Namespace:
     parser.add_argument('--log_training', '-lt', action='store_true', help='log training progress')
     parser.add_argument('--k_prev_actions', '-ka', type=int, default=0,
                         help='adds the k previous actions to the environment')
-    parser.add_argument('--neutral_reward', '-nr', type=float,
+    parser.add_argument('--neutral_rewards', '-nr', type=float,
                         help='applies a negative reward to every "neutral action" - ie those that don\'t induce any '
                              'change to the environment')
     parser.add_argument('--verbose', '-v', default=1, type=int, help='verbosity of agents and environment')

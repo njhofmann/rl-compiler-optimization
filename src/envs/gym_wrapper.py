@@ -174,7 +174,7 @@ class CompilerGymWrapper(g.Env):
 
         if done:
             self._reset_for_eps()
-        elif not done and reward == 0.0:
+        elif not done and reward == 0.0 and self.neutral_reward is not None:
             reward += self.neutral_reward
 
         obs = self._modify_obs(obs)

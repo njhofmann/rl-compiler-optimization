@@ -129,7 +129,7 @@ def train_and_eval_agent(
                         eval_log_path=str(p.RESULTS_DIRC))
     save_agent(agent, save_name)
 
-    view_results(str(move_eval_results(save_name)))
+    move_eval_results(save_name)
 
 
 def main(args: ap.Namespace) -> None:

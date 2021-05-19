@@ -40,9 +40,9 @@ def trainable(hyperparams: dict, agent: str, random_seed: int):
                             env='llvm-autophase-ic-v0',
                             verbose=1,
                             save_name=save_name,
-                            timesteps=2000000,
-                            eval_dur=10,
-                            eval_freq=1000000,
+                            timesteps=1000000,
+                            eval_dur=5,
+                            eval_freq=10000,
                             datasets=['blas-v0'],
                             log_training=False,
                             learning_starts=1000,
@@ -82,7 +82,7 @@ def get_tune_config(agent: str) -> Tuple[dict, List[dict]]:
     ent_coef = t.uniform(1e-6, 0.1)
     vf_coef = t.uniform(.2, .6)
     gae_lambda = t.uniform(.8, .999)
-
+    # TODO realign priors with uniform things
     if agent == 'dqn':
         param_ranges = {'batch_size': batch_size,
                         'buffer_size': t.uniform(0, 4),  # 1000, 4000, 7000 10000,
@@ -95,7 +95,7 @@ def get_tune_config(agent: str) -> Tuple[dict, List[dict]]:
                    'batch_size': 0.0,  # 8
                    'buffer_size': 1.0,  # 1000, 4000, 7000 10000,
                    'train_freq': 0.0,  # 4, 8, 16
-                   'gradient_steps': -1,  # -1, 1, 4, 8
+                   'gradient_steps': 0,  # -1, 1, 4, 8
                    'target_update_interval': 0.0}]  # 10
     elif agent == 'a2c':
         param_ranges = {'n_steps': n_steps,
@@ -129,8 +129,9 @@ def get_tune_config(agent: str) -> Tuple[dict, List[dict]]:
 
 
 def save_experiment_results(results, save_name: str):
+    p.HYPERPARAM_RESULTS_DIRC.mkdir(exist_ok=True, parents=True)
     with open(p.HYPERPARAM_RESULTS_DIRC / f'{save_name}.pyk', 'wb') as f:
-        pickle.dumps(results, f)
+        pickle.dump(results, f)
 
 
 if __name__ == '__main__':
@@ -146,6 +147,6 @@ if __name__ == '__main__':
                                                 random_search_steps=args.random_starts,
                                                 points_to_evaluate=priors),
                     resources_per_trial={'gpu': 1,
-                                         'cpu': 4})
+                                         'cpu': 2})
     print(results.best_config)
     save_experiment_results(results, f'{args.agent}_hyperparam_results')
